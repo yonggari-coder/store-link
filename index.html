@@ -211,14 +211,14 @@ function renderButtons() {
   box.innerHTML = "";
 
   if (isAndroid) {
-    // 안드로이드: 크롬 → 네이버 앱
-    box.appendChild(makeBtn("크롬으로 열기", "btn-chrome", openAndroidChrome));
+    // 안드로이드: 네이버 앱 → 크롬
     box.appendChild(makeBtn("네이버 앱으로 열기", "btn-primary", openNaverApp));
+    box.appendChild(makeBtn("크롬으로 열기", "btn-chrome", openAndroidChrome));
   } else if (isIOS) {
-    // iOS: 크롬 → 사파리(안내) → 네이버 앱
+    // iOS: 네이버 앱 → 크롬 → 사파리(안내)
+    box.appendChild(makeBtn("네이버 앱으로 열기", "btn-primary", openNaverApp));
     box.appendChild(makeBtn("크롬으로 열기", "btn-chrome", openIOSChrome));
     box.appendChild(makeBtn("사파리로 열기", "btn-safari", showSafariGuide));
-    box.appendChild(makeBtn("네이버 앱으로 열기", "btn-primary", openNaverApp));
   } else {
     // PC 등 그 외: 그냥 새 탭으로
     const a = document.createElement("a");
@@ -233,11 +233,9 @@ function renderButtons() {
 
 /* ---- 자동 시도 ---- */
 function autoOpen() {
-  if (isAndroid) {
-    openAndroidChrome();          // 크롬 자동 시도
-  } else if (isIOS) {
-    openIOSChrome();              // 크롬 앱 자동 시도(설치 시)
-    // 사파리는 자동 불가 → 사용자가 버튼으로
+  if (isAndroid || isIOS) {
+    openNaverApp();               // 네이버 앱 자동 시도 (1순위)
+    // 네이버 앱이 없거나 막히면 → 사용자가 크롬/사파리 버튼으로
   } else {
     // PC: 자동 이동
     location.href = TARGET;
