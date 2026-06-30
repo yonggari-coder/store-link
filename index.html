@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>외부 브라우저로 이동 중...</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+      "Malgun Gothic", "맑은 고딕", sans-serif;
+    background: #f5f6f8;
+    color: #1d1d1f;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    padding: 28px 24px 24px;
+    text-align: center;
+  }
+  .spinner {
+    width: 44px;
+    height: 44px;
+    margin: 4px auto 18px;
+    border: 4px solid #e6e8eb;
+    border-top-color: #03c75a; /* 네이버 그린 */
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 19px; margin: 0 0 8px; }
+  p.sub { font-size: 14px; color: #6e6e73; margin: 0 0 22px; line-height: 1.5; }
+  .btns { display: flex; flex-direction: column; gap: 10px; }
+  button, a.btn {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 15px 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: transform 0.05s ease;
+  }
+  button:active, a.btn:active { transform: scale(0.98); }
+  .btn-primary { background: #03c75a; color: #fff; }
+  .btn-chrome  { background: #1a73e8; color: #fff; }
+  .btn-safari  { background: #0a84ff; color: #fff; }
+  .btn-ghost   { background: #f0f1f3; color: #1d1d1f; }
+  .guide {
+    margin-top: 16px;
+    font-size: 13px;
+    color: #6e6e73;
+    line-height: 1.6;
+    background: #f7f8fa;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: left;
+    display: none;
+  }
+  .guide b { color: #1d1d1f; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h1 id="title">외부 브라우저로 이동 중…</h1>
+    <p class="sub" id="subtitle">
+      로그인 상태로 보시려면 외부 브라우저에서 열어야 해요.<br />
+      자동으로 안 열리면 아래 버튼을 눌러주세요.
+    </p>
+
+    <div class="btns" id="btns"><!-- JS가 버튼을 채웁니다 --></div>
+
+    <div class="guide" id="guide"></div>
+  </div>
+
+<script>
+/* =====================================================================
+ *  설정: 여기만 바꾸면 됩니다.
+ *
+ *  목적지 주소를 정하는 3가지 방법 (위에서부터 우선순위):
+ *   1) ?p=코드   → 아래 PRODUCTS 표에서 코드에 해당하는 주소로 연결 (추천)
+ *        예) https://아이디.github.io/repo/?p=1
+ *   2) ?url=주소  → 전체 스마트스토어 주소를 그대로 넘기기
+ *        예) https://아이디.github.io/repo/?url=https://smartstore.naver.com/...
+ *   3) 둘 다 없으면 DEFAULT_TARGET 으로 연결
+ *
+ *  상품을 추가하려면 PRODUCTS 에 "코드: 주소" 한 줄만 더 넣으면 됩니다.
+ * ===================================================================== */
+const PRODUCTS = {
+  "1": "https://smartstore.naver.com/alubapro/products/13571461357",
+  "2": "https://smartstore.naver.com/alubapro/products/13637246365",
+  // "3": "https://smartstore.naver.com/alubapro/products/...",
+};
+
+// PRODUCTS 의 첫 번째 항목을 기본값으로 사용
+const DEFAULT_TARGET = Object.values(PRODUCTS)[0];
+
+/* ---- 목적지 주소 결정 ---- */
+function getTarget() {
+  const params = new URLSearchParams(location.search);
+  const code = (params.get("p") || "").trim();
+  const url = (params.get("url") || "").trim();
+
+  let target;
+  if (code && PRODUCTS[code]) {
+    target = PRODUCTS[code];   // 1) ?p=코드
+  } else if (url) {
+    target = url;              // 2) ?url=주소
+  } else {
+    target = DEFAULT_TARGET;   // 3) 기본값
+  }
+
+  // 스킴이 없으면 https 붙이기
+  if (!/^https?:\/\//i.test(target)) target = "https://" + target;
+  return target;
+}
+const TARGET = getTarget();
+
+/* ---- 환경 감지 ---- */
+const ua = navigator.userAgent || "";
+const isAndroid = /android/i.test(ua);
+const isIOS = /iphone|ipad|ipod/i.test(ua) ||
+  (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); // iPadOS 대응
+// 인앱 브라우저(인스타/페북/쓰레드/카카오/라인 등) 감지
+const isInApp = /Instagram|FBAN|FBAV|FB_IAB|Threads|Line|KAKAOTALK|NAVER|DaumApps|everytimeApp|wadiz/i.test(ua);
+
+/* ---- 각 브라우저로 여는 함수들 ---- */
+
+// 안드로이드: intent로 크롬 강제 실행 (실패 시 fallback URL)
+function openAndroidChrome() {
+  const noScheme = TARGET.replace(/^https?:\/\//i, "");
+  const fallback = encodeURIComponent(TARGET);
+  const intent =
+    "intent://" + noScheme +
+    "#Intent;scheme=https;package=com.android.chrome;" +
+    "S.browser_fallback_url=" + fallback + ";end";
+  location.href = intent;
+}
+
+// iOS: 크롬 앱 스킴으로 열기 (크롬 설치되어 있을 때만 동작)
+function openIOSChrome() {
+  const noScheme = TARGET.replace(/^https?:\/\//i, "");
+  // https는 googlechromes, http는 googlechrome
+  location.href = "googlechromes://" + noScheme;
+}
+
+// 네이버 앱의 인앱브라우저로 열기 (네이버 로그인 상태 사용) — iOS/안드로이드 공통
+function openNaverApp() {
+  location.href =
+    "naversearchapp://inappbrowser?url=" + encodeURIComponent(TARGET) +
+    "&target=new&version=6";
+}
+
+// 사파리/외부 브라우저로 직접 여는 건 iOS 인앱브라우저에서 JS로 강제 불가 → 안내 표시
+function showSafariGuide() {
+  const guide = document.getElementById("guide");
+  guide.style.display = "block";
+  guide.innerHTML =
+    "<b>사파리로 여는 법</b><br />" +
+    "화면 <b>오른쪽 위(또는 아래)의 ··· 메뉴</b>를 누르고 " +
+    "<b>‘외부 브라우저로 열기’</b> 또는 <b>‘Safari에서 열기’</b>를 선택하세요.<br /><br />" +
+    "<button class='btn-ghost' style='padding:10px;font-size:14px;border-radius:10px;' " +
+    "onclick='copyLink()'>📋 링크 복사해서 직접 열기</button>";
+  guide.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function copyLink() {
+  const done = () => alert("링크를 복사했어요. 사파리/크롬 주소창에 붙여넣어 주세요.");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(TARGET).then(done).catch(() => fallbackCopy());
+  } else {
+    fallbackCopy();
+  }
+  function fallbackCopy() {
+    const t = document.createElement("textarea");
+    t.value = TARGET;
+    document.body.appendChild(t);
+    t.select();
+    try { document.execCommand("copy"); done(); }
+    catch (e) { prompt("아래 주소를 복사하세요:", TARGET); }
+    document.body.removeChild(t);
+  }
+}
+
+/* ---- 버튼 구성 ---- */
+function makeBtn(label, cls, onClick) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.className = cls;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function renderButtons() {
+  const box = document.getElementById("btns");
+  box.innerHTML = "";
+
+  if (isAndroid) {
+    // 안드로이드: 크롬 → 네이버 앱
+    box.appendChild(makeBtn("크롬으로 열기", "btn-chrome", openAndroidChrome));
+    box.appendChild(makeBtn("네이버 앱으로 열기", "btn-primary", openNaverApp));
+  } else if (isIOS) {
+    // iOS: 크롬 → 사파리(안내) → 네이버 앱
+    box.appendChild(makeBtn("크롬으로 열기", "btn-chrome", openIOSChrome));
+    box.appendChild(makeBtn("사파리로 열기", "btn-safari", showSafariGuide));
+    box.appendChild(makeBtn("네이버 앱으로 열기", "btn-primary", openNaverApp));
+  } else {
+    // PC 등 그 외: 그냥 새 탭으로
+    const a = document.createElement("a");
+    a.href = TARGET;
+    a.className = "btn btn-primary";
+    a.textContent = "스마트스토어 열기";
+    a.target = "_blank";
+    a.rel = "noopener";
+    box.appendChild(a);
+  }
+}
+
+/* ---- 자동 시도 ---- */
+function autoOpen() {
+  if (isAndroid) {
+    openAndroidChrome();          // 크롬 자동 시도
+  } else if (isIOS) {
+    openIOSChrome();              // 크롬 앱 자동 시도(설치 시)
+    // 사파리는 자동 불가 → 사용자가 버튼으로
+  } else {
+    // PC: 자동 이동
+    location.href = TARGET;
+  }
+}
+
+/* ---- 시작 ---- */
+renderButtons();
+
+// 인앱브라우저가 아니거나 PC면 스피너 문구만, 인앱이면 안내 강조
+if (!isInApp && !isAndroid && !isIOS) {
+  document.getElementById("title").textContent = "스마트스토어로 이동합니다";
+}
+
+// 자동 시도는 살짝 늦게(렌더 후) — 인앱이 막으면 버튼이 그대로 보입니다.
+setTimeout(autoOpen, 400);
+
+// 자동 시도가 막혀 페이지가 그대로 남는 경우를 위해, 잠시 뒤 스피너를 안내 문구로 전환
+setTimeout(function () {
+  document.getElementById("spinner").classList.add("hidden");
+  document.getElementById("title").textContent = "버튼을 눌러 열어주세요";
+}, 2500);
+</script>
+</body>
+</html>
